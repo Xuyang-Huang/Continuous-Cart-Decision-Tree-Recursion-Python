@@ -81,9 +81,9 @@ class CartDecisionTree:
         split_method: String, choose 'gini' or 'entropy'.
     """
     def __init__(self, min_leaf, split_method='gini'):
-        self.root = None
-        self.min_leaf = min_leaf
-        self.n_class = None
+        self.__root = None
+        self.__min_leaf = min_leaf
+        self.__n_class = None
         c = Criterion()
         self.__train_node = getattr(c, split_method)
 
@@ -111,14 +111,14 @@ class CartDecisionTree:
             _node.left_class = np.argmax(np.bincount(_split_label[0]))
             _node.right_class = np.argmax(np.bincount(_split_label[1]))
 
-            if len(_split_label[0]) < self.min_leaf:
+            if len(_split_label[0]) < self.__min_leaf:
                 return _node
             if (_split_label[0] == _split_label[0][0]).all():
                 return _node
 
             _node.left = grow(_split_data[0], _split_label[0])
 
-            if len(_split_label[1]) < self.min_leaf:
+            if len(_split_label[1]) < self.__min_leaf:
                 return _node
             if (_split_label[1] == _split_label[1][0]).all():
                 return _node
@@ -127,7 +127,7 @@ class CartDecisionTree:
 
             return _node
 
-        self.root = grow(data, label)
+        self.__root = grow(data, label)
 
     def predict(self, data):
         """Traverse DT get a result.
@@ -155,7 +155,7 @@ class CartDecisionTree:
             __inference(root.right, _split_data[1], _split_data_index[1])
 
             return None
-        __inference(self.root, data, index)
+        __inference(self.__root, data, index)
         return result
 
     def eval(self, data, label):
@@ -188,7 +188,7 @@ class CartDecisionTree:
             __inference(root.right, _split_data[1], _split_data_index[1], _split_label[1])
 
             return None
-        __inference(self.root, data, index, label)
+        __inference(self.__root, data, index, label)
         acc = []
         for i in range(self.n_class):
             if len(result_label[i]) == 0:
