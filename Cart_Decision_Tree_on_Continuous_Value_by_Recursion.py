@@ -8,7 +8,7 @@
 import numpy as np
 import sklearn.datasets as sk_dataset
 
-minimum_leaf = 5
+minimum_leaf = 4
 
 
 class TreeNode:
@@ -27,6 +27,9 @@ class TreeNode:
         self.right = None
         self.left_class = None
         self.right_class = None
+        self.left_acc = None
+        self.right_acc = None
+        self.acc = None
 
     def split(self, data, label=None):
         """Split the input data.
@@ -76,16 +79,21 @@ class CartDecisionTree:
     """
     Attributes:
         root: A decision tree node class.
-        min_leaf: An integer of minimum leaf number.
-        n_class: An integer of class number.
+        __min_leaf: An integer of minimum leaf number.
+        __n_class: An integer of class number.
         split_method: String, choose 'gini' or 'entropy'.
+        __pruning_prop: A floating number, proportion of data number to prune DT.
+        __pruning: Bool, if True prune the DT, or not.
+
     """
-    def __init__(self, min_leaf, split_method='gini'):
-        self.__root = None
+    def __init__(self, min_leaf, split_method='gini', pruning_prop=0.2, pruning=False):
+        self.root = None
         self.__min_leaf = min_leaf
         self.__n_class = None
         c = Criterion()
         self.__train_node = getattr(c, split_method)
+        self.__pruning_prop = pruning_prop
+        self.__pruning = pruning
 
     def train(self, data, label, n_class):
         """Train a decision tree.
@@ -97,7 +105,12 @@ class CartDecisionTree:
         :param n_class: An integer of class number.
         :return: No return.
         """
-        self.n_class = n_class
+        self.__n_class = n_class
+        if self.__pruning:
+            pruning_data = data[:int(len(data) * self.__pruning_prop)]
+            pruning_label = label[:int(len(label) * self.__pruning_prop)]
+            data = data[int(len(data) * self.__pruning_prop):]
+            label = label[int(len(label) * self.__pruning_prop):]
 
         def grow(_data, _label):
             # Train single node.
@@ -127,7 +140,53 @@ class CartDecisionTree:
 
             return _node
 
-        self.__root = grow(data, label)
+        self.root = grow(data, label)
+        if self.__pruning:
+            self.__post_pruning(pruning_data, pruning_label)
+
+    def __post_pruning(self, data, label):
+        """Prune DT.
+
+        :param data: A 2-D Numpy array.
+        :param label: A 1-D Numpy array.
+        :return:
+        """
+        index = np.arange(len(data))
+
+        def __inference(root, _data, _index, _label):
+            _split_data, _split_data_index, _split_label = root.split_predict(_data, _index, _label)
+            if len(_label) == 0:
+                root.acc = 0
+            else:
+                root.acc = np.mean(_label == np.argmax(np.bincount(_label)))
+            if root.left is None:
+                if len(_split_data[0]) != 0:
+                    tmp_acc = np.mean(_split_label[0] == root.left_class)
+                else:
+                    tmp_acc = 0
+                root.left_acc = tmp_acc
+                return None
+
+            __inference(root.left, _split_data[0], _split_data_index[0], _split_label[0])
+
+            if root.right is None:
+                if len(_split_data[1]) != 0:
+                    tmp_acc = np.mean(_split_label[1] == root.right_class)
+                else:
+                    tmp_acc = 0
+                root.right_acc = tmp_acc
+                return None
+
+            __inference(root.right, _split_data[1], _split_data_index[1], _split_label[1])
+
+            if (root.right_acc is not None) & (root.right_acc is not None):
+                child_acc = np.mean([root.right_acc, root.left_acc])
+                if root.acc > child_acc:
+                    del root.left
+                    del root.right
+                    root.left, root.right, root.left_acc, root.right_acc = None, None, None, None
+
+        __inference(self.root, data, index, label)
 
     def predict(self, data):
         """Traverse DT get a result.
@@ -135,7 +194,7 @@ class CartDecisionTree:
         :param data: A 2-D Numpy array.
         :return: Prediction.
         """
-        result = [[] for _ in range(self.n_class)]
+        result = [[] for _ in range(self.__n_class)]
         index = np.arange(len(data))
 
         def __inference(root, _data, _index):
@@ -155,7 +214,7 @@ class CartDecisionTree:
             __inference(root.right, _split_data[1], _split_data_index[1])
 
             return None
-        __inference(self.__root, data, index)
+        __inference(self.root, data, index)
         return result
 
     def eval(self, data, label):
@@ -165,8 +224,8 @@ class CartDecisionTree:
         :param label: A 1-D Numpy array.
         :return: Prediction, Prediction with label, Accuracy.
         """
-        result = [[] for _ in range(self.n_class)]
-        result_label = [[] for _ in range(self.n_class)]
+        result = [[] for _ in range(self.__n_class)]
+        result_label = [[] for _ in range(self.__n_class)]
         index = np.arange(len(data))
 
         def __inference(root, _data, _index, _label):
@@ -188,9 +247,9 @@ class CartDecisionTree:
             __inference(root.right, _split_data[1], _split_data_index[1], _split_label[1])
 
             return None
-        __inference(self.__root, data, index, label)
+        __inference(self.root, data, index, label)
         acc = []
-        for i in range(self.n_class):
+        for i in range(self.__n_class):
             if len(result_label[i]) == 0:
                 acc.append(0)
             else:
@@ -283,7 +342,7 @@ def prepare_data(proportion):
 
 if __name__ == '__main__':
     train, val, num_class = prepare_data(0.8)
-    cart_dt = CartDecisionTree(minimum_leaf, 'entropy')
+    cart_dt = CartDecisionTree(minimum_leaf, 'gini')
     cart_dt.train(train[0], train[1], num_class)
     _, _, train_acc = cart_dt.eval(train[0], train[1])
     pred, pred_gt, val_acc = cart_dt.eval(val[0], val[1])
