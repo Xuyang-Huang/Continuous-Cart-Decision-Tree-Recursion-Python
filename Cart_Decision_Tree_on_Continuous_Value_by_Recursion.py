@@ -118,7 +118,7 @@ class CartDecisionTree:
             _node = TreeNode(_feature_index, _thr)
             _split_data, _split_label = _node.split(_data, _label)
 
-            if len(_split_label[0]) == 0:
+            if (len(_split_label[0]) == 0) | (len(_split_label[1]) == 0):
                 return None
             elif len(_split_label[0]) < self.__min_leaf:
                 _node.left_class = np.argmax(np.bincount(_split_label[0]))
@@ -128,9 +128,7 @@ class CartDecisionTree:
                 _node.left = grow(_split_data[0], _split_label[0])
                 _node.left_class = np.argmax(np.bincount(_split_label[0]))
 
-            if len(_split_label[1]) == 0:
-                return None
-            elif len(_split_label[1]) < self.__min_leaf:
+            if len(_split_label[1]) < self.__min_leaf:
                 _node.right_class = np.argmax(np.bincount(_split_label[1]))
             elif (_split_label[1] == _split_label[1][0]).all():
                 _node.right_class = np.argmax(np.bincount(_split_label[1]))
@@ -179,7 +177,7 @@ class CartDecisionTree:
 
             if (root.left_acc is not None) & (root.right_acc is not None):
                 child_acc = np.mean([root.right_acc, root.left_acc])
-                if root.acc >= child_acc:
+                if root.acc > child_acc:
                     del root.left
                     del root.right
                     root.left, root.right, root.left_acc, root.right_acc = None, None, None, None
@@ -328,7 +326,7 @@ class Criterion:
 
 
 def prepare_data(proportion):
-    dataset = sk_dataset.load_breast_cancer()
+    dataset = sk_dataset.load_wine()
     label = dataset['target']
     data = dataset['data']
     n_class = len(dataset['target_names'])
@@ -350,7 +348,7 @@ if __name__ == '__main__':
     minimum_leaf = 1
     train, val, num_class = prepare_data(0.8)
     num_try = int(np.sqrt(train[0].shape[1]))
-    cart_dt = CartDecisionTree(minimum_leaf, 'gini', pruning_prop=0.1, n_try=num_try)
+    cart_dt = CartDecisionTree(minimum_leaf, 'gini', pruning_prop=0.3, n_try=num_try)
     cart_dt.train(train[0], train[1], num_class)
     _, _, train_acc = cart_dt.eval(train[0], train[1])
     pred, pred_gt, val_acc = cart_dt.eval(val[0], val[1])
