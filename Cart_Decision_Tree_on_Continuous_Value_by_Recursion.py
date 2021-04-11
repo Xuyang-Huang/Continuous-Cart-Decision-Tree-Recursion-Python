@@ -194,6 +194,8 @@ class CartDecisionTree:
         index = np.arange(len(data))
 
         def __inference(root, _data, _index):
+            if root is None:
+                return None
             _split_data, _split_data_index = root.split_predict(_data, _index)
             if root.left is None:
                 if len(_split_data[0]) != 0:
@@ -223,6 +225,8 @@ class CartDecisionTree:
         index = np.arange(len(data))
 
         def __inference(root, _data, _index, _label):
+            if root is None:
+                return None
             _split_data, _split_data_index, _split_label = root.split_predict(_data, _index, _label)
             if root.left is None:
                 if len(_split_data[0]) != 0:
